@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Giao Diện Trò Chơi - Đọc Data.xlsx</title>
+  
+  <!-- Thư viện SheetJS đọc file Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      background-image: url('https://raw.githubusercontent.com/hiiragimikoto/ccvc/main/bg.png');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+
+    .game-logo {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 130px;
+      height: auto;
+      z-index: 10;
+      filter: drop-shadow(0px 4px 8px rgba(0, 0, 0, 0.4));
+      pointer-events: none;
+    }
+
+    /* KHUNG CHÍNH CỐ ĐỊNH CHỨA ẢNH NỀN THONGBAO.PNG */
+    .ui-box {
+      position: relative;
+      width: 340px;
+      height: 520px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .ui-box-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: url('https://raw.githubusercontent.com/hiiragimikoto/ccvc/main/thongbao.png');
+      background-size: 100% 100%;
+      background-position: center;
+      background-repeat: no-repeat;
+      filter: drop-shadow(0px 8px 16px rgba(0, 0, 0, 0.6));
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* KHU VỰC CUỘN DỮ LIỆU & ICON BÊN TRONG */
+    .scroll-content {
+      position: absolute;
+      top: 75px; /* Tăng từ 60px -> 75px để đẩy UI bên trong xuống */
+      bottom: 18px;
+      left: 18px;
+      right: 18px;
+      z-index: 2;
+      overflow-y: auto;
+      overflow-x: hidden;
+      color: #333;
+      padding-right: 4px;
+    }
+
+    .scroll-content::-webkit-scrollbar {
+      width: 5px;
+    }
+    .scroll-content::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 4px;
+    }
+    .scroll-content::-webkit-scrollbar-thumb {
+      background: #4a5c6e;
+      border-radius: 4px;
+    }
+
+    /* TIÊU ĐỀ HỆ NỘI ĐAN */
+    .section-header {
+      display: block;
+      width: 100%;
+      background-color: #7188a1;
+      color: #000000;
+      font-weight: 900;
+      padding: 4px 10px 4px 8px;
+      font-size: 12px;
+      margin-top: 10px;
+      margin-bottom: 8px;
+      clip-path: polygon(0 0, 96% 0, 100% 100%, 0% 100%);
+      box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2);
+      text-transform: capitalize;
+      clear: both;
+    }
+
+    .section-header:first-child {
+      margin-top: 0px;
+    }
+
+    /* GRID LƯỚI ICON 5 CỘT */
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+      margin-bottom: 12px;
+      width: 100%;
+    }
+
+    .icon-btn {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border: 1.5px solid #000000;
+      border-radius: 4px;
+      box-shadow: 1px 1.5px 3px rgba(0, 0, 0, 0.5);
+      cursor: pointer;
+      overflow: hidden;
+      background-color: #2b3542;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .icon-btn:active {
+      transform: scale(0.93);
+    }
+
+    .icon-btn .bg-rarity {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 1;
+    }
+
+    .icon-btn .label {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      z-index: 3;
+      font-size: 7.5px;
+      font-weight: 900;
+      color: #ffffff;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding: 1px 2px;
+      background: rgba(0, 0, 0, 0.55);
+      text-shadow: 
+        -1px -1px 0 #000,  
+         1px -1px 0 #000,
+        -1px  1px 0 #000,
+         1px  1px 0 #000;
+    }
+
+    /* TOOLTIP POPUP (BẢNG THÔNG TIN KHI CLICK) */
+    .tooltip-card {
+      display: none;
+      position: absolute;
+      z-index: 999;
+      width: 125px;
+      pointer-events: none;
+    }
+
+    .tooltip-card .card-bg {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 4px;
+      filter: drop-shadow(0px 4px 8px rgba(0,0,0,0.6));
+    }
+
+    .tooltip-card .tooltip-title {
+      position: absolute;
+      top: 0%;
+      left: 3%;
+      width: 94%;
+      height: 17%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      font-size: clamp(9px, 2.6vw, 11px);
+      font-weight: 900;
+      color: #ffffff;
+      line-height: 1.05;
+      white-space: normal;
+      word-break: break-word;
+      text-shadow: 
+        -1px -1px 0 #000,  
+         1px -1px 0 #000,
+        -1px  1px 0 #000,
+         1px  1px 0 #000;
+      z-index: 10;
+    }
+
+    .tooltip-card .tooltip-desc {
+      position: absolute;
+      top: 57%;
+      left: 8%;
+      width: 84%;
+      height: 38%;
+      color: #ffffff;
+      font-size: 8px;
+      font-weight: bold;
+      line-height: 1.2;
+      text-align: left;
+      overflow-y: auto;
+      word-break: break-word;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+
+  <img class="game-logo" src="https://raw.githubusercontent.com/hiiragimikoto/ccvc/main/logo.png" alt="Logo">
+
+  <div class="ui-box" id="uiBox">
+    <div class="ui-box-bg"></div>
+
+    <div class="scroll-content" id="scrollContent">
+      <div id="sectionsContainer">
+        <div style="color: #666; text-align: center; padding-top: 30px; font-size: 12px;">Đang tải dữ liệu từ data.xlsx...</div>
+      </div>
+    </div>
+
+    <!-- POPUP BẢNG THÔNG TIN KHI CLICK -->
+    <div id="tooltip" class="tooltip-card">
+      <img id="tooltipImg" class="card-bg" src="" alt="Nền độ hiếm Popup">
+      <div id="tooltipTitle" class="tooltip-title"></div>
+      <div id="tooltipDesc" class="tooltip-desc"></div>
+    </div>
+  </div>
+
+  <script>
+    const RAW_BASE = "https://raw.githubusercontent.com/hiiragimikoto/ccvc/main/";
+    const EXCEL_URL = RAW_BASE + "data.xlsx"; 
+
+    const container = document.getElementById('sectionsContainer');
+    const scrollContent = document.getElementById('scrollContent');
+    const tooltip = document.getElementById('tooltip');
+    const tooltipImg = document.getElementById('tooltipImg');
+    const tooltipTitle = document.getElementById('tooltipTitle');
+    const tooltipDesc = document.getElementById('tooltipDesc');
+    const uiBox = document.getElementById('uiBox');
+    let activeBtn = null;
+
+    function normalizeRarity(val) {
+      if (!val) return 'xanh';
+      let str = val.toString().trim().toLowerCase();
+      str = str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      
+      if (str.includes('do') || str.includes('red')) return 'do';
+      if (str.includes('vang') || str.includes('yellow') || str.includes('cam')) return 'vang';
+      if (str.includes('tim') || str.includes('purple')) return 'tim';
+      return 'xanh';
+    }
+
+    async function fetchAndParseExcel() {
+      try {
+        const response = await fetch(`${EXCEL_URL}?v=${Date.now()}`);
+        if (!response.ok) throw new Error("Không thể đọc file data.xlsx");
+
+        const arrayBuffer = await response.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        
+        const jsonRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+        let categories = {};
+        let currentCategory = "thông dụng cường hóa - toàn đội";
+
+        jsonRows.forEach((row) => {
+          let catVal = "";
+          let nameVal = "";
+          let effectVal = "";
+          let rarityVal = "";
+
+          for (let key in row) {
+            let keyLower = key.toString().trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            let val = row[key] ? row[key].toString().trim() : "";
+
+            if (keyLower.includes("loai") || keyLower.includes("he") || keyLower.includes("danh muc") || keyLower.includes("category")) {
+              if (val) catVal = val;
+            } else if (keyLower.includes("ten") || keyLower.includes("noi dan") || keyLower.includes("name")) {
+              if (val) nameVal = val;
+            } else if (keyLower.includes("mo ta") || keyLower.includes("tac dung") || keyLower.includes("hieu qua") || keyLower.includes("desc") || keyLower.includes("effect")) {
+              if (val) effectVal = val;
+            } else if (keyLower.includes("dohiem") || keyLower.includes("do hiem") || keyLower.includes("hiem") || keyLower.includes("rarity")) {
+              if (val) rarityVal = val;
+            }
+          }
+
+          if (!nameVal && row['Tên']) nameVal = row['Tên'];
+          if (!rarityVal && row['dohiem']) rarityVal = row['dohiem'];
+          if (!rarityVal && row['Độ hiếm']) rarityVal = row['Độ hiếm'];
+
+          if (catVal) currentCategory = catVal;
+          if (!nameVal) return;
+
+          let rarity = normalizeRarity(rarityVal);
+
+          if (!categories[currentCategory]) {
+            categories[currentCategory] = [];
+          }
+
+          categories[currentCategory].push({
+            name: nameVal,
+            effect: effectVal,
+            rarity: rarity
+          });
+        });
+
+        return categories;
+      } catch (err) {
+        console.error("Lỗi khi tải hoặc xử lý file Excel:", err);
+        return null;
+      }
+    }
+
+    async function renderUI() {
+      const data = await fetchAndParseExcel();
+
+      if (!data || Object.keys(data).length === 0) {
+        container.innerHTML = '<div style="color:#000; text-align:center; padding: 20px; font-size: 12px;">Không thể tải dữ liệu từ data.xlsx!</div>';
+        return;
+      }
+
+      container.innerHTML = '';
+
+      for (const [catName, items] of Object.entries(data)) {
+        const sectionHeader = document.createElement('div');
+        sectionHeader.className = 'section-header';
+        sectionHeader.textContent = catName;
+        container.appendChild(sectionHeader);
+
+        const grid = document.createElement('div');
+        grid.className = 'button-grid';
+
+        items.forEach(item => {
+          const cacheBuster = `?v=${Date.now()}`;
+          const rarityBg = `${RAW_BASE}dohiem/${item.rarity}.png${cacheBuster}`;
+
+          const btn = document.createElement('div');
+          btn.className = 'icon-btn';
+          btn.innerHTML = `
+            <img class="bg-rarity" src="${rarityBg}" alt="Khung">
+            <div class="label">${item.name}</div>
+          `;
+
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+
+            if (activeBtn === btn && tooltip.style.display === 'block') {
+              tooltip.style.display = 'none';
+              activeBtn = null;
+              return;
+            }
+
+            activeBtn = btn;
+            
+            tooltipImg.src = rarityBg;
+            tooltipTitle.textContent = item.name;
+            tooltipDesc.textContent = item.effect || "Chưa có mô tả tác dụng.";
+
+            if (item.name.length > 15) {
+              tooltipTitle.style.fontSize = '8.5px';
+            } else if (item.name.length > 10) {
+              tooltipTitle.style.fontSize = '9.5px';
+            } else {
+              tooltipTitle.style.fontSize = '11px';
+            }
+
+            tooltip.style.display = 'block';
+
+            const btnRect = btn.getBoundingClientRect();
+            const boxRect = uiBox.getBoundingClientRect();
+            const cardWidth = tooltip.offsetWidth || 125;
+            const cardHeight = tooltip.offsetHeight || 170;
+
+            let leftPos = (btnRect.left - boxRect.left) + 15;
+            if (leftPos + cardWidth > boxRect.width - 10) {
+              leftPos = (btnRect.left - boxRect.left) - cardWidth + 10;
+            }
+
+            let topPos = (btnRect.top - boxRect.top) - cardHeight + 10;
+            if (topPos < 5) topPos = 5;
+            if (topPos + cardHeight > boxRect.height - 5) {
+              topPos = boxRect.height - cardHeight - 5;
+            }
+
+            tooltip.style.left = `${leftPos}px`;
+            tooltip.style.top = `${topPos}px`;
+          });
+
+          grid.appendChild(btn);
+        });
+
+        container.appendChild(grid);
+      }
+    }
+
+    renderUI();
+
+    document.addEventListener('click', () => {
+      tooltip.style.display = 'none';
+      activeBtn = null;
+    });
+
+    scrollContent.addEventListener('scroll', () => {
+      tooltip.style.display = 'none';
+      activeBtn = null;
+    });
+  </script>
+
+</body>
+</html>
